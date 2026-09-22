@@ -49,7 +49,8 @@ if "L-Shape" in shower_style:
     p1_hinge_btm = st.sidebar.number_input("P1 Hinge Bottom Offset (mm)", value=200, key="p1_hb")
     p1_hole_side = st.sidebar.selectbox("P1 Bracket Hole Edge", options=["Right", "Left", "None"], index=0)
     p1_hole_dia = st.sidebar.number_input("P1 Bracket Hole Diameter (mm)", value=22)
-    p1_hole_offset = st.sidebar.number_input("P1 Bracket Hole Offset (mm)", value=200)
+    p1_hole_top = st.sidebar.number_input("P1 Hole Top Offset (mm)", value=200, key="p1_olt")
+    p1_hole_btm = st.sidebar.number_input("P1 Hole Bottom Offset (mm)", value=200, key="p1_olb")
 
     st.sidebar.header("6. Panel 2 (Door Panel)")
     p2_w = st.sidebar.number_input("P2 Width (mm)", value=800)
@@ -69,7 +70,8 @@ if "L-Shape" in shower_style:
     p3_hinge_btm = st.sidebar.number_input("P3 Hinge Bottom Offset (mm)", value=200, key="p3_hb")
     p3_hole_side = st.sidebar.selectbox("P3 Bracket Hole Edge", options=["Left", "Right", "None"], index=0)
     p3_hole_dia = st.sidebar.number_input("P3 Bracket Hole Diameter (mm)", value=22)
-    p3_hole_offset = st.sidebar.number_input("P3 Bracket Hole Offset (mm)", value=200)
+    p3_hole_top = st.sidebar.number_input("P3 Hole Top Offset (mm)", value=200, key="p3_olt")
+    p3_hole_btm = st.sidebar.number_input("P3 Hole Bottom Offset (mm)", value=200, key="p3_olb")
 
 elif "Fixed Panel Only" in shower_style:
     st.sidebar.header("5. Fixed Panel Specs")
@@ -77,7 +79,8 @@ elif "Fixed Panel Only" in shower_style:
     p1_h = st.sidebar.number_input("Fixed Panel Height (mm)", value=2000)
     p1_hole_side = st.sidebar.selectbox("Bracket Hole Edge", options=["Left", "Right", "None"], index=0)
     p1_hole_dia = st.sidebar.number_input("Bracket Hole Diameter (mm)", value=22)
-    p1_hole_offset = st.sidebar.number_input("Bracket Hole Offset (mm)", value=200)
+    p1_hole_top = st.sidebar.number_input("Bracket Hole Top Offset (mm)", value=200, key="f1_olt")
+    p1_hole_btm = st.sidebar.number_input("Bracket Hole Bottom Offset (mm)", value=200, key="f1_olb")
 
 # --- PDF GENERATION ENGINE ---
 def generate_pdf():
@@ -164,27 +167,27 @@ def generate_pdf():
             c.drawString(ox + p_w + 35, oy + btm_y_offset + 3, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
             draw_dim_line_v(ox + p_w + 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
 
-    def draw_holes(ox, oy, p_w, p_h, real_h, side, dia, offset):
+    def draw_holes(ox, oy, p_w, p_h, real_h, side, dia, top_offset, btm_offset):
         if side == "None":
             return
         c.setFont("Helvetica", 7)
-        top_y_offset = (offset / float(real_h)) * p_h
-        btm_y_offset = (offset / float(real_h)) * p_h
+        top_y_offset = (top_offset / float(real_h)) * p_h
+        btm_y_offset = (btm_offset / float(real_h)) * p_h
 
         if side == "Left":
             c.circle(ox + 15, oy + p_h - top_y_offset, 5, fill=0, stroke=1)
             c.circle(ox + 15, oy + btm_y_offset, 5, fill=0, stroke=1)
             c.drawRightString(ox - 35, oy + p_h - top_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox - 20, oy + p_h - top_y_offset, oy + p_h, f"{offset} mm")
+            draw_dim_line_v(ox - 20, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm")
             c.drawRightString(ox - 35, oy + btm_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox - 20, oy, oy + btm_y_offset, f"{offset} mm")
+            draw_dim_line_v(ox - 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
         elif side == "Right":
             c.circle(ox + p_w - 15, oy + p_h - top_y_offset, 5, fill=0, stroke=1)
             c.circle(ox + p_w - 15, oy + btm_y_offset, 5, fill=0, stroke=1)
             c.drawString(ox + p_w + 35, oy + p_h - top_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox + p_w + 20, oy + p_h - top_y_offset, oy + p_h, f"{offset} mm")
+            draw_dim_line_v(ox + p_w + 20, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm")
             c.drawString(ox + p_w + 35, oy + btm_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox + p_w + 20, oy, oy + btm_y_offset, f"{offset} mm")
+            draw_dim_line_v(ox + p_w + 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
 
     def draw_knob(ox, oy, p_w, p_h, real_h, side, dia, height_offset):
         if side == "None":
@@ -210,7 +213,7 @@ def generate_pdf():
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p1_w} mm")
         draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p1_h} mm")
         draw_hinges(ox, oy, p_w, p_h, p1_h, p1_hinge_side, p1_hinge_top, p1_hinge_btm)
-        draw_holes(ox, oy, p_w, p_h, p1_h, p1_hole_side, p1_hole_dia, p1_hole_offset)
+        draw_holes(ox, oy, p_w, p_h, p1_h, p1_hole_side, p1_hole_dia, p1_hole_top, p1_hole_btm)
         c.showPage()
 
         # PAGE 2: P2
@@ -232,7 +235,7 @@ def generate_pdf():
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p3_w} mm")
         draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p3_h} mm")
         draw_hinges(ox, oy, p_w, p_h, p3_h, p3_hinge_side, p3_hinge_top, p3_hinge_btm)
-        draw_holes(ox, oy, p_w, p_h, p3_h, p3_hole_side, p3_hole_dia, p3_hole_offset)
+        draw_holes(ox, oy, p_w, p_h, p3_h, p3_hole_side, p3_hole_dia, p3_hole_top, p3_hole_btm)
         if p3_hinge_side != "Right" and p3_hole_side != "Right":
             c.setFont("Helvetica", 8)
             c.drawString(ox + p_w + 15, oy + p_h/2, "(Clean Straight Edge)")
@@ -246,7 +249,7 @@ def generate_pdf():
         c.rect(ox, oy, p_w, p_h)
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p1_w} mm")
         draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p1_h} mm")
-        draw_holes(ox, oy, p_w, p_h, p1_h, p1_hole_side, p1_hole_dia, p1_hole_offset)
+        draw_holes(ox, oy, p_w, p_h, p1_h, p1_hole_side, p1_hole_dia, p1_hole_top, p1_hole_btm)
         c.showPage()
 
     c.save()
