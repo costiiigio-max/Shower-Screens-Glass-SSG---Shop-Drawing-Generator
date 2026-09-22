@@ -8,7 +8,7 @@ from reportlab.lib import colors
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
 st.title("Shower Screens & Glass (SSG) - Shop Drawing Generator")
-st.write("Parametric CAD shop drawing tool with automated installer sketch AI parsing & job menus.")
+st.write("Parametric CAD shop drawing tool (First-Person View) with automated installer sketch AI parsing & job menus.")
 
 # --- INITIALIZE SESSION STATE FOR AUTOMATIC AI INPUTS ---
 default_values = {
@@ -37,35 +37,8 @@ def parse_installer_sketch(image_file):
     }
     return extracted_data
 
-# --- STEP 1: INSTALLER SKETCH UPLOAD & AUTO-ROTATION ---
-st.sidebar.header("1. Upload Installer Sketch (Auto-Orient & AI Parse)")
-uploaded_sketch = st.sidebar.file_uploader("Upload Hand Sketch or Job Sheet", type=["jpg", "jpeg", "png"])
-
-if uploaded_sketch is not None:
-    raw_img = Image.open(uploaded_sketch)
-    oriented_img = ImageOps.exif_transpose(raw_img)
-    
-    col_rot1, col_rot2 = st.sidebar.columns(2)
-    if col_rot1.button("↺ Rotate 90° L"):
-        st.session_state.sketch_rotation = (st.session_state.sketch_rotation + 90) % 360
-    if col_rot2.button("↻ Rotate 90° R"):
-        st.session_state.sketch_rotation = (st.session_state.sketch_rotation - 90) % 360
-
-    if st.session_state.sketch_rotation != 0:
-        display_img = oriented_img.rotate(st.session_state.sketch_rotation, expand=True)
-    else:
-        display_img = oriented_img
-
-    st.sidebar.image(display_img, caption="Oriented Installer Sketch", use_container_width=True)
-    
-    if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="primary"):
-        parsed_dims = parse_installer_sketch(uploaded_sketch)
-        for k, v in parsed_dims.items():
-            st.session_state[k] = v
-        st.sidebar.success("Extracted dimensions auto-filled below!")
-
-# --- STEP 2: SHOWER STYLE SELECTION ---
-st.sidebar.header("2. Shower Screen Style")
+# --- STEP 1: SHOWER STYLE SELECTION ---
+st.sidebar.header("1. Shower Screen Style")
 shower_style = st.sidebar.selectbox(
     "Select Shower Screen Layout",
     options=[
@@ -76,45 +49,8 @@ shower_style = st.sidebar.selectbox(
     index=0
 )
 
-# --- STEP 3: BATCH JOB QUANTITY & DYNAMIC PANEL COUNTING ---
-st.sidebar.header("3. Job Order Quantity")
-total_showers = st.sidebar.number_input("Total Number of Showers (Systems)", min_value=1, value=5, step=1)
-
-if "L-Shape" in shower_style:
-    panels_per_shower = 3
-    p1_name = "P1 — Return Panel"
-    p2_name = "P2 — Door Panel"
-    p3_name = "P3 — Right Fixed Panel"
-elif "Inline Screen" in shower_style:
-    panels_per_shower = 2
-    p1_name = "P1 — Door Panel"
-    p2_name = "P2 — Fixed Panel"
-    p3_name = ""
-elif "Fixed Panel Only" in shower_style:
-    panels_per_shower = 1
-    p1_name = "P1 — Standalone Fixed Panel"
-    p2_name = ""
-    p3_name = ""
-
-total_glass_pieces = total_showers * panels_per_shower
-
-# --- STEP 4: JOB HEADER & SITE DETAILS ---
-st.sidebar.header("4. Job & Site Details")
-project_name = st.sidebar.text_input("Project Name", key="project_name")
-
-suburb = st.sidebar.selectbox(
-    "Suburb",
-    options=["Newington", "Castle Hill", "Parramatta", "Sydney CBD", "Other (Custom)"],
-    index=0
-)
-if suburb == "Other (Custom)":
-    suburb = st.sidebar.text_input("Enter Custom Suburb", value="Newington")
-
-date_str = st.sidebar.text_input("Date", value="22/09/2026")
-supplier = st.sidebar.text_input("Supplier", value="Standard Supplier")
-
-# --- STEP 5: SPECIFICATIONS MENUS ---
-st.sidebar.header("5. Glass, Hardware & Scope Menus")
+# --- STEP 2: GLASS & HARDWARE MENUS ---
+st.sidebar.header("2. Glass, Hardware & Scope Menus")
 
 glass_type = st.sidebar.selectbox(
     "Glass Type & Thickness",
@@ -149,6 +85,70 @@ install_scope = st.sidebar.selectbox(
     ],
     index=0
 )
+
+# --- STEP 3: INSTALLER SKETCH UPLOAD & AUTO-ROTATION ---
+st.sidebar.header("3. Upload Installer Sketch (Auto-Orient & AI Parse)")
+uploaded_sketch = st.sidebar.file_uploader("Upload Hand Sketch or Job Sheet", type=["jpg", "jpeg", "png"])
+
+if uploaded_sketch is not None:
+    raw_img = Image.open(uploaded_sketch)
+    oriented_img = ImageOps.exif_transpose(raw_img)
+    
+    col_rot1, col_rot2 = st.sidebar.columns(2)
+    if col_rot1.button("↺ Rotate 90° L"):
+        st.session_state.sketch_rotation = (st.session_state.sketch_rotation + 90) % 360
+    if col_rot2.button("↻ Rotate 90° R"):
+        st.session_state.sketch_rotation = (st.session_state.sketch_rotation - 90) % 360
+
+    if st.session_state.sketch_rotation != 0:
+        display_img = oriented_img.rotate(st.session_state.sketch_rotation, expand=True)
+    else:
+        display_img = oriented_img
+
+    st.sidebar.image(display_img, caption="First-Person View Sketch", use_container_width=True)
+    
+    if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="primary"):
+        parsed_dims = parse_installer_sketch(uploaded_sketch)
+        for k, v in parsed_dims.items():
+            st.session_state[k] = v
+        st.sidebar.success("Extracted dimensions auto-filled below!")
+
+# --- STEP 4: BATCH JOB QUANTITY & DYNAMIC PANEL COUNTING ---
+st.sidebar.header("4. Job Order Quantity")
+total_showers = st.sidebar.number_input("Total Number of Showers (Systems)", min_value=1, value=5, step=1)
+
+if "L-Shape" in shower_style:
+    panels_per_shower = 3
+    p1_name = "P1 — Return Panel"
+    p2_name = "P2 — Door Panel"
+    p3_name = "P3 — Right Fixed Panel"
+elif "Inline Screen" in shower_style:
+    panels_per_shower = 2
+    p1_name = "P1 — Door Panel"
+    p2_name = "P2 — Fixed Panel"
+    p3_name = ""
+elif "Fixed Panel Only" in shower_style:
+    panels_per_shower = 1
+    p1_name = "P1 — Standalone Fixed Panel"
+    p2_name = ""
+    p3_name = ""
+
+total_glass_pieces = total_showers * panels_per_shower
+
+# --- STEP 5: JOB HEADER & SITE DETAILS ---
+st.sidebar.header("5. Job & Site Details")
+project_name = st.sidebar.text_input("Project Name", key="project_name")
+
+suburb = st.sidebar.selectbox(
+    "Suburb",
+    options=["Newington", "Castle Hill", "Parramatta", "Sydney CBD", "Other (Custom)"],
+    index=0
+)
+if suburb == "Other (Custom)":
+    suburb = st.sidebar.text_input("Enter Custom Suburb", value="Newington")
+
+date_str = st.sidebar.text_input("Date", value="22/09/2026")
+supplier = st.sidebar.text_input("Supplier", value="Standard Supplier")
 
 # --- STEP 6: GLOBAL HINGE SPECS ---
 st.sidebar.header("6. Global Hinge Model Specs")
@@ -261,7 +261,7 @@ def generate_pdf():
         c.drawRightString(page_w - 50, tb_y + 27, f"Date: {date_str}   |   Page {page_num} of {total_pages}")
         
         c.drawString(50, tb_y + 12, f"Glass: {glass_type}   |   Hardware: {hardware_finish}   |   Scope: {install_scope}")
-        c.drawRightString(page_w - 50, tb_y + 12, "Edgework: FP 4 Sides   |   Stamp: No Stamp")
+        c.drawRightString(page_w - 50, tb_y + 12, "VIEW: FIRST-PERSON FRONT   |   Edgework: FP 4 Sides")
         
         c.setFont("Helvetica-Bold", 11)
         c.drawString(40, page_h - 120, title)
@@ -294,17 +294,17 @@ def generate_pdf():
 
         if side == "Left":
             c.rect(ox, oy + p_h - top_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2, f"{hinge_type} [Left Edge] ({hinge_w}x{hinge_h}mm)")
             draw_dim_line_v(ox - 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=True)
             c.rect(ox, oy + btm_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawRightString(ox - 55, oy + btm_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            c.drawRightString(ox - 55, oy + btm_y_offset - 2, f"{hinge_type} [Left Edge] ({hinge_w}x{hinge_h}mm)")
             draw_dim_line_v(ox - 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=True)
         elif side == "Right":
             c.rect(ox + p_w - 12, oy + p_h - top_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2, f"{hinge_type} [Right Edge] ({hinge_w}x{hinge_h}mm)")
             draw_dim_line_v(ox + p_w + 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=False)
             c.rect(ox + p_w - 12, oy + btm_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawString(ox + p_w + 55, oy + btm_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            c.drawString(ox + p_w + 55, oy + btm_y_offset - 2, f"{hinge_type} [Right Edge] ({hinge_w}x{hinge_h}mm)")
             draw_dim_line_v(ox + p_w + 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=False)
 
     def draw_holes(ox, oy, p_w, p_h, real_h, side, dia, top_offset, btm_offset):
@@ -317,16 +317,16 @@ def generate_pdf():
         if side == "Left":
             c.circle(ox + 15, oy + p_h - top_y_offset, 5, fill=0, stroke=1)
             c.circle(ox + 15, oy + btm_y_offset, 5, fill=0, stroke=1)
-            c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2.5, f"Ø{dia}mm Bracket Hole [Left Edge]")
             draw_dim_line_v(ox - 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=True)
-            c.drawRightString(ox - 55, oy + btm_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            c.drawRightString(ox - 55, oy + btm_y_offset - 2.5, f"Ø{dia}mm Bracket Hole [Left Edge]")
             draw_dim_line_v(ox - 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=True)
         elif side == "Right":
             c.circle(ox + p_w - 15, oy + p_h - top_y_offset, 5, fill=0, stroke=1)
             c.circle(ox + p_w - 15, oy + btm_y_offset, 5, fill=0, stroke=1)
-            c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2.5, f"Ø{dia}mm Bracket Hole [Right Edge]")
             draw_dim_line_v(ox + p_w + 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=False)
-            c.drawString(ox + p_w + 55, oy + btm_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            c.drawString(ox + p_w + 55, oy + btm_y_offset - 2.5, f"Ø{dia}mm Bracket Hole [Right Edge]")
             draw_dim_line_v(ox + p_w + 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=False)
 
     def draw_knob(ox, oy, p_w, p_h, real_h, side, dia, height_offset):
@@ -337,11 +337,11 @@ def generate_pdf():
         
         if side == "Left":
             c.circle(ox + 15, knob_y, 4, fill=0, stroke=1)
-            c.drawRightString(ox - 55, knob_y - 2.5, f"Ø{dia}mm Knob")
+            c.drawRightString(ox - 55, knob_y - 2.5, f"Ø{dia}mm Knob [Left]")
             draw_dim_line_v(ox - 25, oy, knob_y, f"{height_offset} mm", align_left=True)
         elif side == "Right":
             c.circle(ox + p_w - 15, knob_y, 4, fill=0, stroke=1)
-            c.drawString(ox + p_w + 55, knob_y - 2.5, f"Ø{dia}mm Knob")
+            c.drawString(ox + p_w + 55, knob_y - 2.5, f"Ø{dia}mm Knob [Right]")
             draw_dim_line_v(ox + p_w + 25, oy, knob_y, f"{height_offset} mm", align_left=False)
 
     if "L-Shape" in shower_style:
@@ -435,14 +435,14 @@ with col1:
     st.markdown("---")
     st.write("### Panel Quantity Breakdown")
     if "L-Shape" in shower_style:
-        st.write(f"• **{p1_name}:** **{total_showers} pcs** ({st.session_state.p1_w}mm x {st.session_state.p1_h}mm)")
+        st.write(f"• **{p1_name}:** **{total_showers} pcs** ({st.session_state.p1_w}mm x {st.session_state.p1_h}mm) | Brackets: **{p1_hole_side} Edge**")
         st.write(f"• **{p2_name}:** **{total_showers} pcs** ({st.session_state.p2_w}mm x {st.session_state.p2_h}mm) | Knob Edge: **{p2_knob_side}**")
-        st.write(f"• **{p3_name}:** **{total_showers} pcs** ({st.session_state.p3_w}mm x {st.session_state.p3_h}mm)")
+        st.write(f"• **{p3_name}:** **{total_showers} pcs** ({st.session_state.p3_w}mm x {st.session_state.p3_h}mm) | Brackets: **{p3_hole_side} Edge**")
     elif "Inline Screen" in shower_style:
         st.write(f"• **{p1_name}:** **{total_showers} pcs** ({p1_w}mm x {p1_h}mm) | Knob Edge: **{p1_knob_side}**")
-        st.write(f"• **{p2_name}:** **{total_showers} pcs** ({p2_w}mm x {p2_h}mm)")
+        st.write(f"• **{p2_name}:** **{total_showers} pcs** ({p2_w}mm x {p2_h}mm) | Brackets: **{p2_hole_side} Edge**")
     elif "Fixed Panel Only" in shower_style:
-        st.write(f"• **{p1_name}:** **{total_showers} pcs** ({st.session_state.p1_w}mm x {st.session_state.p1_h}mm)")
+        st.write(f"• **{p1_name}:** **{total_showers} pcs** ({st.session_state.p1_w}mm x {st.session_state.p1_h}mm) | Brackets: **{p1_hole_side} Edge**")
 
 with col2:
     pdf_bytes = generate_pdf()
