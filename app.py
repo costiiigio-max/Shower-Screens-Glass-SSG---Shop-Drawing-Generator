@@ -8,7 +8,7 @@ from reportlab.lib import colors
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
 st.title("Shower Screens & Glass (SSG) - Shop Drawing Generator")
-st.write("Parametric CAD shop drawing tool (First-Person View) with automated installer sketch AI parsing & flexible Wall-to-Wall configurations.")
+st.write("Parametric CAD shop drawing tool (First-Person View) with automated installer sketch AI parsing & interactive extraction verification.")
 
 # --- INITIALIZE SESSION STATE WITH PERSISTENT CORRECTION RULES ---
 default_values = {
@@ -16,6 +16,7 @@ default_values = {
     "suburb": "Newington",
     "sketch_rotation": 0,
     "overall_span_input": 0,
+    "sketch_parsed": False,
     # Panel 1 Defaults
     "p1_w": 1200, "p1_h": 2400, "p1_hinge_side": "Left", "p1_hinge_top": 500, "p1_hinge_btm": 200,
     "p1_hole_side": "None", "p1_hole_dia": 22, "p1_hole_top": 200, "p1_hole_btm": 200,
@@ -33,16 +34,20 @@ for key, val in default_values.items():
 
 # --- AI SKETCH PARSER FUNCTION ---
 def parse_installer_sketch(image_file):
+    """
+    Simulated AI Vision Parser mapping large vertical side numerals to panel heights,
+    detecting hole locations, and verifying bracket positions.
+    """
     extracted_data = {
         "overall_span_input": 2760,
         "p1_w": 1200, "p1_h": 2400, "p1_hinge_side": "Left", "p1_hinge_top": 500, "p1_hinge_btm": 200,
         "p1_hole_side": "None",
         "p2_w": 800, "p2_h": 2100, "p2_hinge_side": "Right", "p2_knob_side": "Left", "p2_knob_height": 1050,
-        "p3_w": 760, "p3_h": 2400, "p3_hole_side": "Right", "p3_hole_top": 500, "p3_hole_btm": 200
+        "p3_w": 760, "p3_h": 2400, "p3_hole_side": "Right", "p3_hole_dia": 22, "p3_hole_top": 500, "p3_hole_btm": 200
     }
     return extracted_data
 
-# --- STEP 1: SHOWER STYLE SELECTION (FLEXIBLE WALL-TO-WALL OPTIONS) ---
+# --- STEP 1: SHOWER STYLE SELECTION ---
 st.sidebar.header("1. Shower Screen Style")
 shower_style = st.sidebar.selectbox(
     "Select Shower Screen Layout",
@@ -55,8 +60,8 @@ shower_style = st.sidebar.selectbox(
     index=0
 )
 
-# --- STEP 2: INSTALLER SKETCH UPLOAD & AUTO-ROTATION ---
-st.sidebar.header("2. Upload Installer Sketch (Auto-Orient & AI Parse)")
+# --- STEP 2: INSTALLER SKETCH UPLOAD & INTERACTIVE VERIFICATION ---
+st.sidebar.header("2. Upload Installer Sketch & AI Parsing")
 uploaded_sketch = st.sidebar.file_uploader("Upload Hand Sketch or Job Sheet", type=["jpg", "jpeg", "png"])
 
 if uploaded_sketch is not None:
@@ -77,10 +82,44 @@ if uploaded_sketch is not None:
     st.sidebar.image(display_img, caption="Oriented First-Person Sketch", use_container_width=True)
     
     if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="primary"):
-        parsed_dims = parse_installer_sketch(uploaded_sketch)
-        for k, v in parsed_dims.items():
-            st.session_state[k] = v
-        st.sidebar.success("Extracted dimensions auto-filled below with verified edge positioning!")
+        st.session_state.sketch_parsed = True
+        extracted = parse_installer_sketch(uploaded_sketch)
+        for k, v in extracted.items():
+            st.session_state[f"temp_{k}"] = v
+
+if st.session_state.get("sketch_parsed", False):
+    st.sidebar.info("🔎 **Please Confirm Extracted Measurements & Hole Positions Below:**")
+    with st.sidebar.expander("✅ Confirm AI Image Translation Settings", expanded=True):
+        st.markdown("#### Verify Panel Dimensions & Hardware Positions")
+        
+        c_p1_h = st.number_input("P1 Height (mm) [Big Side Numeral]", value=st.session_state.get("temp_p1_h", st.session_state.p1_h))
+        c_p1_w = st.number_input("P1 Width (mm)", value=st.session_state.get("temp_p1_w", st.session_state.p1_w))
+        c_p1_hole = st.selectbox("P1 Bracket Holes Edge", options=["None", "Left", "Right"], index=["None", "Left", "Right"].index(st.session_state.get("temp_p1_hole_side", st.session_state.p1_hole_side)))
+        
+        st.markdown("---")
+        c_p2_h = st.number_input("P2 Height (mm) [Big Side Numeral]", value=st.session_state.get("temp_p2_h", st.session_state.p2_h))
+        c_p2_w = st.number_input("P2 Width (mm)", value=st.session_state.get("temp_p2_w", st.session_state.p2_w))
+        c_p2_hinge = st.selectbox("P2 Hinge Edge", options=["Right", "Left", "None"], index=["Right", "Left", "None"].index(st.session_state.get("temp_p2_hinge_side", st.session_state.p2_hinge_side)))
+        
+        if "3 Panels" in shower_style or "L-Shape" in shower_style:
+            st.markdown("---")
+            c_p3_h = st.number_input("P3 Height (mm) [Big Side Numeral]", value=st.session_state.get("temp_p3_h", st.session_state.p3_h))
+            c_p3_w = st.number_input("P3 Width (mm)", value=st.session_state.get("temp_p3_w", st.session_state.p3_w))
+            c_p3_hole = st.selectbox("P3 Bracket Holes Edge", options=["Right", "Left", "None"], index=["Right", "Left", "None"].index(st.session_state.get("temp_p3_hole_side", st.session_state.p3_hole_side)))
+
+        if st.button("Confirm & Apply Extracted Measurements", type="primary"):
+            st.session_state.p1_h = c_p1_h
+            st.session_state.p1_w = c_p1_w
+            st.session_state.p1_hole_side = c_p1_hole
+            st.session_state.p2_h = c_p2_h
+            st.session_state.p2_w = c_p2_w
+            st.session_state.p2_hinge_side = c_p2_hinge
+            if "3 Panels" in shower_style or "L-Shape" in shower_style:
+                st.session_state.p3_h = c_p3_h
+                st.session_state.p3_w = c_p3_w
+                st.session_state.p3_hole_side = c_p3_hole
+            st.session_state.sketch_parsed = False
+            st.sidebar.success("Extracted specifications verified and applied!")
 
 # --- STEP 3: OVERALL SPAN CALCULATOR ---
 st.sidebar.header("3. Overall Span Splitter")
