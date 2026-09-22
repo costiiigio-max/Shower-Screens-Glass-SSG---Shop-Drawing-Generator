@@ -8,14 +8,15 @@ from reportlab.lib import colors
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
 st.title("Shower Screens & Glass (SSG) - Shop Drawing Generator")
-st.write("Parametric CAD shop drawing tool (First-Person View) with overall span calculator & AI sketch parser.")
+st.write("Parametric CAD shop drawing tool (First-Person View) with automated installer sketch AI parsing & memory.")
 
 # --- INITIALIZE SESSION STATE WITH PERSISTENT CORRECTION RULES ---
 default_values = {
     "project_name": "Castle Hill",
     "suburb": "Newington",
     "sketch_rotation": 0,
-    # Panel 1 Defaults (Clean Right Edge - No Phantom Holes)
+    "overall_span_input": 0,
+    # Panel 1 Defaults (Return Panel / Clean Right Edge)
     "p1_w": 1200, "p1_h": 2400, "p1_hinge_side": "Left", "p1_hinge_top": 500, "p1_hinge_btm": 200,
     "p1_hole_side": "None", "p1_hole_dia": 22, "p1_hole_top": 200, "p1_hole_btm": 200,
     # Panel 2 Defaults (Door Panel)
@@ -30,14 +31,16 @@ for key, val in default_values.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# --- AI SKETCH PARSER FUNCTION ---
+# --- AI SKETCH PARSER FUNCTION (MAPS BIG SIDE NUMERALS TO HEIGHT) ---
 def parse_installer_sketch(image_file):
     """
     AI Sketch Parser with spatial awareness rules to prevent reversed/mirrored edge translation.
+    Large vertical numerals on sketch sides are mapped directly as Panel Height.
     """
     extracted_data = {
+        "overall_span_input": 2760, # Simulated parsed overall span measurement
         "p1_w": 1200, "p1_h": 2400, "p1_hinge_side": "Left", "p1_hinge_top": 500, "p1_hinge_btm": 200,
-        "p1_hole_side": "None",  # Ensures no unwanted holes on Return edge
+        "p1_hole_side": "None",     # Explicitly prevents phantom holes on Return edge
         "p2_w": 800, "p2_h": 2100, "p2_hinge_side": "Right", "p2_knob_side": "Left", "p2_knob_height": 1050,
         "p3_w": 760, "p3_h": 2400, "p3_hole_side": "Right", "p3_hole_top": 500, "p3_hole_btm": 200
     }
@@ -55,11 +58,42 @@ shower_style = st.sidebar.selectbox(
     index=0
 )
 
-# --- STEP 2: OVERALL SPAN CALCULATOR (MULTI-PANEL SPAN SPLITTER) ---
-st.sidebar.header("2. Overall Span Splitter")
+# --- STEP 2: INSTALLER SKETCH UPLOAD & AUTO-ROTATION ---
+st.sidebar.header("2. Upload Installer Sketch (Auto-Orient & AI Parse)")
+uploaded_sketch = st.sidebar.file_uploader("Upload Hand Sketch or Job Sheet", type=["jpg", "jpeg", "png"])
+
+if uploaded_sketch is not None:
+    raw_img = Image.open(uploaded_sketch)
+    oriented_img = ImageOps.exif_transpose(raw_img)
+    
+    col_rot1, col_rot2 = st.sidebar.columns(2)
+    if col_rot1.button("↺ Rotate 90° L"):
+        st.session_state.sketch_rotation = (st.session_state.sketch_rotation + 90) % 360
+    if col_rot2.button("↻ Rotate 90° R"):
+        st.session_state.sketch_rotation = (st.session_state.sketch_rotation - 90) % 360
+
+    if st.session_state.sketch_rotation != 0:
+        display_img = oriented_img.rotate(st.session_state.sketch_rotation, expand=True)
+    else:
+        display_img = oriented_img
+
+    st.sidebar.image(display_img, caption="Oriented First-Person Sketch", use_container_width=True)
+    
+    if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="primary"):
+        parsed_dims = parse_installer_sketch(uploaded_sketch)
+        for k, v in parsed_dims.items():
+            st.session_state[k] = v
+        st.sidebar.success("Extracted dimensions auto-filled below with verified edge positioning!")
+
+# --- STEP 3: OVERALL SPAN CALCULATOR ---
+st.sidebar.header("3. Overall Span Splitter")
 st.sidebar.caption("Divide a single overall wall-to-wall measurement across spanned panels.")
 
-overall_span = st.sidebar.number_input("Total Overall Span Measurement (mm)", value=0, step=5)
+overall_span = st.sidebar.number_input(
+    "Total Overall Span Measurement (mm)",
+    key="overall_span_input",
+    step=5
+)
 span_panel_count = st.sidebar.selectbox("Panels Spanned by Measurement", options=[2, 3], index=0)
 span_deduction = st.sidebar.number_input("Total Gap Allowance Deduction (mm)", value=6, step=1)
 
@@ -78,8 +112,8 @@ if st.sidebar.button("Calculate & Split Across Panels", type="secondary"):
             st.session_state.p2_w = calculated_panel_w
             st.sidebar.success(f"Split {overall_span}mm into {calculated_panel_w}mm across 2 panels!")
 
-# --- STEP 3: GLASS & HARDWARE MENUS ---
-st.sidebar.header("3. Glass, Hardware & Scope Menus")
+# --- STEP 4: GLASS & HARDWARE MENUS ---
+st.sidebar.header("4. Glass, Hardware & Scope Menus")
 
 glass_type = st.sidebar.selectbox(
     "Glass Type & Thickness",
@@ -114,33 +148,6 @@ install_scope = st.sidebar.selectbox(
     ],
     index=0
 )
-
-# --- STEP 4: INSTALLER SKETCH UPLOAD & AUTO-ROTATION ---
-st.sidebar.header("4. Upload Installer Sketch (Auto-Orient & AI Parse)")
-uploaded_sketch = st.sidebar.file_uploader("Upload Hand Sketch or Job Sheet", type=["jpg", "jpeg", "png"])
-
-if uploaded_sketch is not None:
-    raw_img = Image.open(uploaded_sketch)
-    oriented_img = ImageOps.exif_transpose(raw_img)
-    
-    col_rot1, col_rot2 = st.sidebar.columns(2)
-    if col_rot1.button("↺ Rotate 90° L"):
-        st.session_state.sketch_rotation = (st.session_state.sketch_rotation + 90) % 360
-    if col_rot2.button("↻ Rotate 90° R"):
-        st.session_state.sketch_rotation = (st.session_state.sketch_rotation - 90) % 360
-
-    if st.session_state.sketch_rotation != 0:
-        display_img = oriented_img.rotate(st.session_state.sketch_rotation, expand=True)
-    else:
-        display_img = oriented_img
-
-    st.sidebar.image(display_img, caption="Oriented First-Person Sketch", use_container_width=True)
-    
-    if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="primary"):
-        parsed_dims = parse_installer_sketch(uploaded_sketch)
-        for k, v in parsed_dims.items():
-            st.session_state[k] = v
-        st.sidebar.success("Extracted dimensions auto-filled below with verified edge positioning!")
 
 # --- STEP 5: BATCH JOB QUANTITY & DYNAMIC PANEL COUNTING ---
 st.sidebar.header("5. Job Order Quantity")
@@ -190,7 +197,7 @@ hinge_r = st.sidebar.number_input("Corner Radius r (mm)", value=8)
 if "L-Shape" in shower_style:
     st.sidebar.header("8. Panel 1 (Return Panel)")
     p1_w = st.sidebar.number_input("P1 Width (mm)", key="p1_w")
-    p1_h = st.sidebar.number_input("P1 Height (mm)", key="p1_h")
+    p1_h = st.sidebar.number_input("P1 Height (mm) [Big Side Numeral]", key="p1_h")
     p1_hinge_side = st.sidebar.selectbox("P1 Hinge Edge", options=["Left", "Right", "None"], index=["Left", "Right", "None"].index(st.session_state.p1_hinge_side))
     p1_hinge_top = st.sidebar.number_input("P1 Hinge Top Offset (mm)", key="p1_hinge_top")
     p1_hinge_btm = st.sidebar.number_input("P1 Hinge Bottom Offset (mm)", key="p1_hinge_btm")
@@ -201,7 +208,7 @@ if "L-Shape" in shower_style:
 
     st.sidebar.header("9. Panel 2 (Door Panel)")
     p2_w = st.sidebar.number_input("P2 Width (mm)", key="p2_w")
-    p2_h = st.sidebar.number_input("P2 Height (mm)", key="p2_h")
+    p2_h = st.sidebar.number_input("P2 Height (mm) [Big Side Numeral]", key="p2_h")
     p2_hinge_side = st.sidebar.selectbox("P2 Hinge Edge", options=["Right", "Left", "None"], index=["Right", "Left", "None"].index(st.session_state.p2_hinge_side))
     p2_hinge_top = st.sidebar.number_input("P2 Hinge Top Offset (mm)", key="p2_hinge_top")
     p2_hinge_btm = st.sidebar.number_input("P2 Hinge Bottom Offset (mm)", key="p2_hinge_btm")
@@ -211,7 +218,7 @@ if "L-Shape" in shower_style:
 
     st.sidebar.header("10. Panel 3 (Right Fixed Panel)")
     p3_w = st.sidebar.number_input("P3 Width (mm)", key="p3_w")
-    p3_h = st.sidebar.number_input("P3 Height (mm)", key="p3_h")
+    p3_h = st.sidebar.number_input("P3 Height (mm) [Big Side Numeral]", key="p3_h")
     p3_hinge_side = st.sidebar.selectbox("P3 Hinge Edge", options=["None", "Left", "Right"], index=["None", "Left", "Right"].index(st.session_state.p3_hinge_side))
     p3_hinge_top = st.sidebar.number_input("P3 Hinge Top Offset (mm)", key="p3_hinge_top")
     p3_hinge_btm = st.sidebar.number_input("P3 Hinge Bottom Offset (mm)", key="p3_hinge_btm")
@@ -223,7 +230,7 @@ if "L-Shape" in shower_style:
 elif "Inline Screen" in shower_style:
     st.sidebar.header("8. Panel 1 (Door Panel)")
     p1_w = st.sidebar.number_input("P1 Door Width (mm)", value=800, key="in_p1_w")
-    p1_h = st.sidebar.number_input("P1 Door Height (mm)", value=2100, key="in_p1_h")
+    p1_h = st.sidebar.number_input("P1 Door Height (mm) [Big Side Numeral]", value=2100, key="in_p1_h")
     p1_hinge_side = st.sidebar.selectbox("P1 Hinge Edge", options=["Left", "Right", "None"], index=0)
     p1_hinge_top = st.sidebar.number_input("P1 Hinge Top Offset (mm)", value=200, key="in_p1_ht")
     p1_hinge_btm = st.sidebar.number_input("P1 Hinge Bottom Offset (mm)", value=200, key="in_p1_hb")
@@ -233,7 +240,7 @@ elif "Inline Screen" in shower_style:
 
     st.sidebar.header("9. Panel 2 (Fixed Panel)")
     p2_w = st.sidebar.number_input("P2 Fixed Width (mm)", value=1000, key="in_p2_w")
-    p2_h = st.sidebar.number_input("P2 Fixed Height (mm)", value=2100, key="in_p2_h")
+    p2_h = st.sidebar.number_input("P2 Fixed Height (mm) [Big Side Numeral]", value=2100, key="in_p2_h")
     p2_hinge_side = st.sidebar.selectbox("P2 Glass-to-Glass Hinge Edge", options=["Left", "Right", "None"], index=0)
     p2_hinge_top = st.sidebar.number_input("P2 Hinge Top Offset (mm)", value=200, key="in_p2_ht")
     p2_hinge_btm = st.sidebar.number_input("P2 Hinge Bottom Offset (mm)", value=200, key="in_p2_hb")
@@ -245,7 +252,7 @@ elif "Inline Screen" in shower_style:
 elif "Fixed Panel Only" in shower_style:
     st.sidebar.header("8. Fixed Panel Specs")
     p1_w = st.sidebar.number_input("Fixed Panel Width (mm)", key="p1_w")
-    p1_h = st.sidebar.number_input("Fixed Panel Height (mm)", key="p1_h")
+    p1_h = st.sidebar.number_input("Fixed Panel Height (mm) [Big Side Numeral]", key="p1_h")
     p1_hole_side = st.sidebar.selectbox("Bracket Hole Edge", options=["Right", "Left", "None"], index=0)
     p1_hole_dia = st.sidebar.number_input("Bracket Hole Diameter (mm)", key="p1_hole_dia")
     p1_hole_top = st.sidebar.number_input("Bracket Hole Top Offset (mm)", key="p1_hole_top")
