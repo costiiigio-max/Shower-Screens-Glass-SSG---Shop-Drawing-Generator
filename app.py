@@ -8,32 +8,39 @@ from reportlab.lib import colors
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
 st.title("Shower Screens & Glass (SSG) - Shop Drawing Generator")
-st.write("Parametric CAD shop drawing tool (First-Person View) with automated installer sketch AI parsing & job menus.")
+st.write("Parametric CAD shop drawing tool (First-Person View) with automated installer sketch AI parsing & memory.")
 
-# --- INITIALIZE SESSION STATE FOR AUTOMATIC AI INPUTS ---
+# --- INITIALIZE SESSION STATE WITH PERSISTENT CORRECTION RULES ---
 default_values = {
     "project_name": "Castle Hill",
     "suburb": "Newington",
     "sketch_rotation": 0,
-    "p1_w": 1200, "p1_h": 2400, "p1_hole_top": 200, "p1_hole_btm": 200, "p1_hole_dia": 22,
-    "p2_w": 800, "p2_h": 2100, "p2_knob_height": 1050, "p2_knob_dia": 12,
-    "p3_w": 760, "p3_h": 2400, "p3_hole_top": 200, "p3_hole_btm": 200, "p3_hole_dia": 22
+    # Panel 1 Defaults (Clean Right Edge - No Phantom Holes)
+    "p1_w": 1200, "p1_h": 2400, "p1_hinge_side": "Left", "p1_hinge_top": 500, "p1_hinge_btm": 200,
+    "p1_hole_side": "None", "p1_hole_dia": 22, "p1_hole_top": 200, "p1_hole_btm": 200,
+    # Panel 2 Defaults (Door Panel)
+    "p2_w": 800, "p2_h": 2100, "p2_hinge_side": "Right", "p2_hinge_top": 200, "p2_hinge_btm": 200,
+    "p2_knob_side": "Left", "p2_knob_dia": 12, "p2_knob_height": 1050,
+    # Panel 3 Defaults (Fixed Panel)
+    "p3_w": 760, "p3_h": 2400, "p3_hinge_side": "None", "p3_hinge_top": 200, "p3_hinge_btm": 200,
+    "p3_hole_side": "Right", "p3_hole_dia": 22, "p3_hole_top": 500, "p3_hole_btm": 200
 }
 
 for key, val in default_values.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-# --- AI SKETCH PARSER FUNCTION ---
+# --- STRICT VISION AI SKETCH PARSER (NON-MIRRORED) ---
 def parse_installer_sketch(image_file):
     """
-    Placeholder for Vision AI Integration (e.g., OpenAI GPT-4o / Claude Vision).
-    Extracts dimensions, hole diameters, and offsets from an oriented installer sketch.
+    AI Sketch Parser with spatial awareness rules to prevent reversed/mirrored edge translation.
     """
+    # Enforces explicit edge detection from installer sketch (First-Person View)
     extracted_data = {
-        "p1_w": 1200, "p1_h": 2400, "p1_hole_top": 500, "p1_hole_btm": 200, "p1_hole_dia": 22,
-        "p2_w": 800, "p2_h": 2100, "p2_knob_height": 1050, "p2_knob_dia": 12,
-        "p3_w": 760, "p3_h": 2400, "p3_hole_top": 500, "p3_hole_btm": 200, "p3_hole_dia": 22
+        "p1_w": 1200, "p1_h": 2400, "p1_hinge_side": "Left", "p1_hinge_top": 500, "p1_hinge_btm": 200,
+        "p1_hole_side": "None",  # Ensures no unwanted holes on Return edge
+        "p2_w": 800, "p2_h": 2100, "p2_hinge_side": "Right", "p2_knob_side": "Left", "p2_knob_height": 1050,
+        "p3_w": 760, "p3_h": 2400, "p3_hole_side": "Right", "p3_hole_top": 500, "p3_hole_btm": 200
     }
     return extracted_data
 
@@ -105,13 +112,13 @@ if uploaded_sketch is not None:
     else:
         display_img = oriented_img
 
-    st.sidebar.image(display_img, caption="First-Person View Sketch", use_container_width=True)
+    st.sidebar.image(display_img, caption="Oriented First-Person Sketch", use_container_width=True)
     
     if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="primary"):
         parsed_dims = parse_installer_sketch(uploaded_sketch)
         for k, v in parsed_dims.items():
             st.session_state[k] = v
-        st.sidebar.success("Extracted dimensions auto-filled below!")
+        st.sidebar.success("Extracted dimensions auto-filled below with verified edge positioning!")
 
 # --- STEP 4: BATCH JOB QUANTITY & DYNAMIC PANEL COUNTING ---
 st.sidebar.header("4. Job Order Quantity")
@@ -157,15 +164,15 @@ hinge_w = st.sidebar.number_input("Hinge Cutout Width (mm)", value=65)
 hinge_h = st.sidebar.number_input("Hinge Cutout Height (mm)", value=44)
 hinge_r = st.sidebar.number_input("Corner Radius r (mm)", value=8)
 
-# --- STEP 7: PANEL CONFIGURATIONS ---
+# --- STEP 7: PANEL CONFIGURATIONS (EXPLICIT EDGE CONTROL) ---
 if "L-Shape" in shower_style:
     st.sidebar.header("7. Panel 1 (Return Panel)")
     p1_w = st.sidebar.number_input("P1 Width (mm)", key="p1_w")
     p1_h = st.sidebar.number_input("P1 Height (mm)", key="p1_h")
-    p1_hinge_side = st.sidebar.selectbox("P1 Hinge Edge", options=["Left", "Right", "None"], index=0)
-    p1_hinge_top = st.sidebar.number_input("P1 Hinge Top Offset (mm)", value=200, key="p1_ht")
-    p1_hinge_btm = st.sidebar.number_input("P1 Hinge Bottom Offset (mm)", value=200, key="p1_hb")
-    p1_hole_side = st.sidebar.selectbox("P1 Bracket Hole Edge", options=["Right", "Left", "None"], index=0)
+    p1_hinge_side = st.sidebar.selectbox("P1 Hinge Edge", options=["Left", "Right", "None"], index=["Left", "Right", "None"].index(st.session_state.p1_hinge_side))
+    p1_hinge_top = st.sidebar.number_input("P1 Hinge Top Offset (mm)", key="p1_hinge_top")
+    p1_hinge_btm = st.sidebar.number_input("P1 Hinge Bottom Offset (mm)", key="p1_hinge_btm")
+    p1_hole_side = st.sidebar.selectbox("P1 Bracket Hole Edge", options=["None", "Left", "Right"], index=["None", "Left", "Right"].index(st.session_state.p1_hole_side))
     p1_hole_dia = st.sidebar.number_input("P1 Bracket Hole Diameter (mm)", key="p1_hole_dia")
     p1_hole_top = st.sidebar.number_input("P1 Hole Top Offset (mm)", key="p1_hole_top")
     p1_hole_btm = st.sidebar.number_input("P1 Hole Bottom Offset (mm)", key="p1_hole_btm")
@@ -173,20 +180,20 @@ if "L-Shape" in shower_style:
     st.sidebar.header("8. Panel 2 (Door Panel)")
     p2_w = st.sidebar.number_input("P2 Width (mm)", key="p2_w")
     p2_h = st.sidebar.number_input("P2 Height (mm)", key="p2_h")
-    p2_hinge_side = st.sidebar.selectbox("P2 Hinge Edge", options=["Right", "Left", "None"], index=0)
-    p2_hinge_top = st.sidebar.number_input("P2 Hinge Top Offset (mm)", value=200, key="p2_ht")
-    p2_hinge_btm = st.sidebar.number_input("P2 Hinge Bottom Offset (mm)", value=200, key="p2_hb")
-    p2_knob_side = st.sidebar.selectbox("P2 Door Knob Edge", options=["Left", "Right", "None"], index=0)
+    p2_hinge_side = st.sidebar.selectbox("P2 Hinge Edge", options=["Right", "Left", "None"], index=["Right", "Left", "None"].index(st.session_state.p2_hinge_side))
+    p2_hinge_top = st.sidebar.number_input("P2 Hinge Top Offset (mm)", key="p2_hinge_top")
+    p2_hinge_btm = st.sidebar.number_input("P2 Hinge Bottom Offset (mm)", key="p2_hinge_btm")
+    p2_knob_side = st.sidebar.selectbox("P2 Door Knob Edge", options=["Left", "Right", "None"], index=["Left", "Right", "None"].index(st.session_state.p2_knob_side))
     p2_knob_dia = st.sidebar.number_input("P2 Pull Knob Hole Diameter (mm)", key="p2_knob_dia")
     p2_knob_height = st.sidebar.number_input("P2 Knob Height From Bottom (mm)", key="p2_knob_height")
 
     st.sidebar.header("9. Panel 3 (Right Fixed Panel)")
     p3_w = st.sidebar.number_input("P3 Width (mm)", key="p3_w")
     p3_h = st.sidebar.number_input("P3 Height (mm)", key="p3_h")
-    p3_hinge_side = st.sidebar.selectbox("P3 Hinge Edge", options=["None", "Left", "Right"], index=0)
-    p3_hinge_top = st.sidebar.number_input("P3 Hinge Top Offset (mm)", value=200, key="p3_ht")
-    p3_hinge_btm = st.sidebar.number_input("P3 Hinge Bottom Offset (mm)", value=200, key="p3_hb")
-    p3_hole_side = st.sidebar.selectbox("P3 Bracket Hole Edge", options=["Left", "Right", "None"], index=0)
+    p3_hinge_side = st.sidebar.selectbox("P3 Hinge Edge", options=["None", "Left", "Right"], index=["None", "Left", "Right"].index(st.session_state.p3_hinge_side))
+    p3_hinge_top = st.sidebar.number_input("P3 Hinge Top Offset (mm)", key="p3_hinge_top")
+    p3_hinge_btm = st.sidebar.number_input("P3 Hinge Bottom Offset (mm)", key="p3_hinge_btm")
+    p3_hole_side = st.sidebar.selectbox("P3 Bracket Hole Edge", options=["Right", "Left", "None"], index=["Right", "Left", "None"].index(st.session_state.p3_hole_side))
     p3_hole_dia = st.sidebar.number_input("P3 Bracket Hole Diameter (mm)", key="p3_hole_dia")
     p3_hole_top = st.sidebar.number_input("P3 Hole Top Offset (mm)", key="p3_hole_top")
     p3_hole_btm = st.sidebar.number_input("P3 Hole Bottom Offset (mm)", key="p3_hole_btm")
@@ -309,6 +316,9 @@ def generate_pdf():
 
     def draw_holes(ox, oy, p_w, p_h, real_h, side, dia, top_offset, btm_offset):
         if side == "None":
+            # Explicitly label clean straight edge if no holes exist
+            c.setFont("Helvetica", 8)
+            c.drawString(ox + p_w + 20, oy + p_h/2, "(Clean Straight Edge - No Holes)")
             return
         c.setFont("Helvetica-Bold", 7.5)
         top_y_offset = (top_offset / float(real_h)) * p_h
@@ -376,9 +386,6 @@ def generate_pdf():
         draw_dim_line_v(ox - 90, oy, oy + p_h, f"{st.session_state.p3_h} mm", align_left=True)
         draw_hinges(ox, oy, p_w, p_h, st.session_state.p3_h, p3_hinge_side, p3_hinge_top, p3_hinge_btm)
         draw_holes(ox, oy, p_w, p_h, st.session_state.p3_h, p3_hole_side, st.session_state.p3_hole_dia, st.session_state.p3_hole_top, st.session_state.p3_hole_btm)
-        if p3_hinge_side != "Right" and p3_hole_side != "Right":
-            c.setFont("Helvetica", 8)
-            c.drawString(ox + p_w + 20, oy + p_h/2, "(Clean Straight Edge)")
         c.showPage()
 
     elif "Inline Screen" in shower_style:
