@@ -7,7 +7,7 @@ from reportlab.lib import colors
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
 st.title("Shower Screens & Glass (SSG) - Shop Drawing Generator")
-st.write("Parametric CAD shop drawing tool with proportionally scaled glass panels and dimension lines.")
+st.write("Parametric CAD shop drawing tool with customizable hardware positions and batch ordering.")
 
 # --- STEP 1: SHOWER STYLE SELECTION ---
 st.sidebar.header("1. Shower Screen Style")
@@ -57,6 +57,7 @@ if "L-Shape" in shower_style:
     p2_hinge_side = st.sidebar.selectbox("P2 Hinge Edge", options=["Right", "Left", "None"], index=0)
     p2_hinge_top = st.sidebar.number_input("P2 Hinge Top Offset (mm)", value=200, key="p2_ht")
     p2_hinge_btm = st.sidebar.number_input("P2 Hinge Bottom Offset (mm)", value=200, key="p2_hb")
+    p2_knob_side = st.sidebar.selectbox("P2 Door Knob Edge", options=["Left", "Right", "None"], index=0)
     p2_knob_dia = st.sidebar.number_input("P2 Pull Knob Hole Diameter (mm)", value=12)
     p2_knob_height = st.sidebar.number_input("P2 Knob Height From Bottom (mm)", value=1050)
 
@@ -85,10 +86,8 @@ def generate_pdf():
     page_w, page_h = landscape(letter)
 
     def calculate_scaled_bounds(real_w, real_h):
-        """Calculates canvas pixel dimensions proportional to real aspect ratio."""
         max_draw_w = 280.0
         max_draw_h = 320.0
-        
         aspect = real_w / float(real_h)
         
         if (max_draw_w / aspect) <= max_draw_h:
@@ -187,6 +186,21 @@ def generate_pdf():
             c.drawString(ox + p_w + 35, oy + btm_y_offset - 3, f"Ø{dia}mm Bracket Hole")
             draw_dim_line_v(ox + p_w + 20, oy, oy + btm_y_offset, f"{offset} mm")
 
+    def draw_knob(ox, oy, p_w, p_h, real_h, side, dia, height_offset):
+        if side == "None":
+            return
+        c.setFont("Helvetica", 7)
+        knob_y = oy + (height_offset / float(real_h)) * p_h
+        
+        if side == "Left":
+            c.circle(ox + 15, knob_y, 4, fill=0, stroke=1)
+            c.drawRightString(ox - 35, knob_y - 3, f"Ø{dia}mm Knob")
+            draw_dim_line_v(ox - 20, oy, knob_y, f"{height_offset} mm")
+        elif side == "Right":
+            c.circle(ox + p_w - 15, knob_y, 4, fill=0, stroke=1)
+            c.drawString(ox + p_w + 35, knob_y - 3, f"Ø{dia}mm Knob")
+            draw_dim_line_v(ox + p_w + 20, oy, knob_y, f"{height_offset} mm")
+
     if "L-Shape" in shower_style:
         # PAGE 1: P1
         draw_header("PAGE 1: P1 — L-SHAPE RETURN PANEL", "P1", total_showers)
@@ -206,11 +220,7 @@ def generate_pdf():
         c.rect(ox, oy, p_w, p_h)
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p2_w} mm")
         draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p2_h} mm")
-        knob_y = oy + (p2_knob_height / float(p2_h)) * p_h
-        c.circle(ox + 15, knob_y, 4, fill=0, stroke=1)
-        c.setFont("Helvetica", 7)
-        c.drawRightString(ox - 35, knob_y - 3, f"Ø{p2_knob_dia}mm Knob")
-        draw_dim_line_v(ox - 20, oy, knob_y, f"{p2_knob_height} mm")
+        draw_knob(ox, oy, p_w, p_h, p2_h, p2_knob_side, p2_knob_dia, p2_knob_height)
         draw_hinges(ox, oy, p_w, p_h, p2_h, p2_hinge_side, p2_hinge_top, p2_hinge_btm)
         c.showPage()
 
@@ -252,7 +262,7 @@ with col1:
     st.write(f"**Total Showers Ordered:** {total_showers} Systems")
     if "L-Shape" in shower_style:
         st.write(f"• **P1 Return Panels Needed:** {total_showers} pcs ({p1_w}mm x {p1_h}mm)")
-        st.write(f"• **P2 Door Panels Needed:** {total_showers} pcs ({p2_w}mm x {p2_h}mm)")
+        st.write(f"• **P2 Door Panels Needed:** {total_showers} pcs ({p2_w}mm x {p2_h}mm) | Knob Edge: **{p2_knob_side}**")
         st.write(f"• **P3 Fixed Panels Needed:** {total_showers} pcs ({p3_w}mm x {p3_h}mm)")
     elif "Fixed Panel Only" in shower_style:
         st.write(f"• **Standalone Fixed Panels Needed:** {total_showers} pcs ({p1_w}mm x {p1_h}mm)")
