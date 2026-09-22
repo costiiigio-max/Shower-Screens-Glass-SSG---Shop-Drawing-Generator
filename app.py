@@ -1,5 +1,6 @@
 import streamlit as st
 import io
+from PIL import Image
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -7,10 +8,50 @@ from reportlab.lib import colors
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
 st.title("Shower Screens & Glass (SSG) - Shop Drawing Generator")
-st.write("Parametric CAD shop drawing tool with customizable hardware positions and batch ordering.")
+st.write("Parametric CAD shop drawing tool with automated installer sketch AI parsing.")
 
-# --- STEP 1: SHOWER STYLE SELECTION ---
-st.sidebar.header("1. Shower Screen Style")
+# --- INITIALIZE SESSION STATE FOR AUTOMATIC AI INPUTS ---
+default_values = {
+    "project_name": "Castle Hill",
+    "p1_w": 1200, "p1_h": 2400, "p1_hole_top": 200, "p1_hole_btm": 200, "p1_hole_dia": 22,
+    "p2_w": 800, "p2_h": 2100, "p2_knob_height": 1050, "p2_knob_dia": 12,
+    "p3_w": 760, "p3_h": 2400, "p3_hole_top": 200, "p3_hole_btm": 200, "p3_hole_dia": 22
+}
+
+for key, val in default_values.items():
+    if key not in st.session_state:
+        st.session_state[key] = val
+
+# --- AI SKETCH PARSER FUNCTION ---
+def parse_installer_sketch(image_file):
+    """
+    Placeholder for Vision AI Integration (e.g., OpenAI GPT-4o / Claude Vision).
+    Extracts dimensions, hole diameters, and offsets from an uploaded hand sketch.
+    """
+    # Example simulated extracted dimensions from installer sketch:
+    extracted_data = {
+        "p1_w": 1200, "p1_h": 2400, "p1_hole_top": 500, "p1_hole_btm": 200, "p1_hole_dia": 22,
+        "p2_w": 800, "p2_h": 2100, "p2_knob_height": 1050, "p2_knob_dia": 12,
+        "p3_w": 760, "p3_h": 2400, "p3_hole_top": 500, "p3_hole_btm": 200, "p3_hole_dia": 22
+    }
+    return extracted_data
+
+# --- STEP 1: INSTALLER SKETCH IMAGE UPLOAD ---
+st.sidebar.header("1. Upload Installer Sketch (AI Auto-Fill)")
+uploaded_sketch = st.sidebar.file_uploader("Upload Hand Sketch or Job Sheet", type=["jpg", "jpeg", "png"])
+
+if uploaded_sketch is not None:
+    sketch_img = Image.open(uploaded_sketch)
+    st.sidebar.image(sketch_img, caption="Uploaded Installer Sketch", use_container_width=True)
+    
+    if st.sidebar.button("Parse Sketch & Auto-Fill Fields", type="secondary"):
+        parsed_dims = parse_installer_sketch(uploaded_sketch)
+        for k, v in parsed_dims.items():
+            st.session_state[k] = v
+        st.sidebar.success("Extracted dimensions auto-filled below!")
+
+# --- STEP 2: SHOWER STYLE SELECTION ---
+st.sidebar.header("2. Shower Screen Style")
 shower_style = st.sidebar.selectbox(
     "Select Shower Screen Layout",
     options=[
@@ -21,66 +62,66 @@ shower_style = st.sidebar.selectbox(
     index=0
 )
 
-# --- STEP 2: BATCH JOB QUANTITY ---
-st.sidebar.header("2. Job Order Quantity")
+# --- STEP 3: BATCH JOB QUANTITY ---
+st.sidebar.header("3. Job Order Quantity")
 total_showers = st.sidebar.number_input("Total Number of Showers (Systems)", min_value=1, value=5, step=1)
 
-# --- STEP 3: JOB HEADER DETAILS ---
-st.sidebar.header("3. Job & Header Details")
-project_name = st.sidebar.text_input("Project Name", value="Castle Hill")
+# --- STEP 4: JOB HEADER DETAILS ---
+st.sidebar.header("4. Job & Header Details")
+project_name = st.sidebar.text_input("Project Name", key="project_name")
 date_str = st.sidebar.text_input("Date", value="22/09/2026")
 supplier = st.sidebar.text_input("Supplier", value="Standard Supplier")
 glass_type = st.sidebar.text_input("Glass Spec", value="10mm Clear Toughened")
 
-# --- STEP 4: GLOBAL HINGE SPECS ---
-st.sidebar.header("4. Global Hinge Model Specs")
+# --- STEP 5: GLOBAL HINGE SPECS ---
+st.sidebar.header("5. Global Hinge Model Specs")
 hinge_type = st.sidebar.text_input("Hinge Model Name", value="SUL Hinge")
 hinge_w = st.sidebar.number_input("Hinge Cutout Width (mm)", value=65)
 hinge_h = st.sidebar.number_input("Hinge Cutout Height (mm)", value=44)
 hinge_r = st.sidebar.number_input("Corner Radius r (mm)", value=8)
 
-# --- STEP 5: PANEL CONFIGURATIONS ---
+# --- STEP 6: PANEL CONFIGURATIONS (BOUND TO SESSION STATE) ---
 if "L-Shape" in shower_style:
-    st.sidebar.header("5. Panel 1 (Return Panel)")
-    p1_w = st.sidebar.number_input("P1 Width (mm)", value=1200)
-    p1_h = st.sidebar.number_input("P1 Height (mm)", value=2400)
+    st.sidebar.header("6. Panel 1 (Return Panel)")
+    p1_w = st.sidebar.number_input("P1 Width (mm)", key="p1_w")
+    p1_h = st.sidebar.number_input("P1 Height (mm)", key="p1_h")
     p1_hinge_side = st.sidebar.selectbox("P1 Hinge Edge", options=["Left", "Right", "None"], index=0)
     p1_hinge_top = st.sidebar.number_input("P1 Hinge Top Offset (mm)", value=200, key="p1_ht")
     p1_hinge_btm = st.sidebar.number_input("P1 Hinge Bottom Offset (mm)", value=200, key="p1_hb")
     p1_hole_side = st.sidebar.selectbox("P1 Bracket Hole Edge", options=["Right", "Left", "None"], index=0)
-    p1_hole_dia = st.sidebar.number_input("P1 Bracket Hole Diameter (mm)", value=22)
-    p1_hole_top = st.sidebar.number_input("P1 Hole Top Offset (mm)", value=200, key="p1_olt")
-    p1_hole_btm = st.sidebar.number_input("P1 Hole Bottom Offset (mm)", value=200, key="p1_olb")
+    p1_hole_dia = st.sidebar.number_input("P1 Bracket Hole Diameter (mm)", key="p1_hole_dia")
+    p1_hole_top = st.sidebar.number_input("P1 Hole Top Offset (mm)", key="p1_hole_top")
+    p1_hole_btm = st.sidebar.number_input("P1 Hole Bottom Offset (mm)", key="p1_hole_btm")
 
-    st.sidebar.header("6. Panel 2 (Door Panel)")
-    p2_w = st.sidebar.number_input("P2 Width (mm)", value=800)
-    p2_h = st.sidebar.number_input("P2 Height (mm)", value=2100)
+    st.sidebar.header("7. Panel 2 (Door Panel)")
+    p2_w = st.sidebar.number_input("P2 Width (mm)", key="p2_w")
+    p2_h = st.sidebar.number_input("P2 Height (mm)", key="p2_h")
     p2_hinge_side = st.sidebar.selectbox("P2 Hinge Edge", options=["Right", "Left", "None"], index=0)
     p2_hinge_top = st.sidebar.number_input("P2 Hinge Top Offset (mm)", value=200, key="p2_ht")
     p2_hinge_btm = st.sidebar.number_input("P2 Hinge Bottom Offset (mm)", value=200, key="p2_hb")
     p2_knob_side = st.sidebar.selectbox("P2 Door Knob Edge", options=["Left", "Right", "None"], index=0)
-    p2_knob_dia = st.sidebar.number_input("P2 Pull Knob Hole Diameter (mm)", value=12)
-    p2_knob_height = st.sidebar.number_input("P2 Knob Height From Bottom (mm)", value=1050)
+    p2_knob_dia = st.sidebar.number_input("P2 Pull Knob Hole Diameter (mm)", key="p2_knob_dia")
+    p2_knob_height = st.sidebar.number_input("P2 Knob Height From Bottom (mm)", key="p2_knob_height")
 
-    st.sidebar.header("7. Panel 3 (Right Fixed Panel)")
-    p3_w = st.sidebar.number_input("P3 Width (mm)", value=760)
-    p3_h = st.sidebar.number_input("P3 Height (mm)", value=2400)
+    st.sidebar.header("8. Panel 3 (Right Fixed Panel)")
+    p3_w = st.sidebar.number_input("P3 Width (mm)", key="p3_w")
+    p3_h = st.sidebar.number_input("P3 Height (mm)", key="p3_h")
     p3_hinge_side = st.sidebar.selectbox("P3 Hinge Edge", options=["None", "Left", "Right"], index=0)
     p3_hinge_top = st.sidebar.number_input("P3 Hinge Top Offset (mm)", value=200, key="p3_ht")
     p3_hinge_btm = st.sidebar.number_input("P3 Hinge Bottom Offset (mm)", value=200, key="p3_hb")
     p3_hole_side = st.sidebar.selectbox("P3 Bracket Hole Edge", options=["Left", "Right", "None"], index=0)
-    p3_hole_dia = st.sidebar.number_input("P3 Bracket Hole Diameter (mm)", value=22)
-    p3_hole_top = st.sidebar.number_input("P3 Hole Top Offset (mm)", value=200, key="p3_olt")
-    p3_hole_btm = st.sidebar.number_input("P3 Hole Bottom Offset (mm)", value=200, key="p3_olb")
+    p3_hole_dia = st.sidebar.number_input("P3 Bracket Hole Diameter (mm)", key="p3_hole_dia")
+    p3_hole_top = st.sidebar.number_input("P3 Hole Top Offset (mm)", key="p3_hole_top")
+    p3_hole_btm = st.sidebar.number_input("P3 Hole Bottom Offset (mm)", key="p3_hole_btm")
 
 elif "Fixed Panel Only" in shower_style:
-    st.sidebar.header("5. Fixed Panel Specs")
-    p1_w = st.sidebar.number_input("Fixed Panel Width (mm)", value=760)
-    p1_h = st.sidebar.number_input("Fixed Panel Height (mm)", value=2400)
+    st.sidebar.header("6. Fixed Panel Specs")
+    p1_w = st.sidebar.number_input("Fixed Panel Width (mm)", key="p1_w")
+    p1_h = st.sidebar.number_input("Fixed Panel Height (mm)", key="p1_h")
     p1_hole_side = st.sidebar.selectbox("Bracket Hole Edge", options=["Right", "Left", "None"], index=0)
-    p1_hole_dia = st.sidebar.number_input("Bracket Hole Diameter (mm)", value=22)
-    p1_hole_top = st.sidebar.number_input("Bracket Hole Top Offset (mm)", value=200, key="f1_olt")
-    p1_hole_btm = st.sidebar.number_input("Bracket Hole Bottom Offset (mm)", value=200, key="f1_olb")
+    p1_hole_dia = st.sidebar.number_input("Bracket Hole Diameter (mm)", key="p1_hole_dia")
+    p1_hole_top = st.sidebar.number_input("Bracket Hole Top Offset (mm)", key="p1_hole_top")
+    p1_hole_btm = st.sidebar.number_input("Bracket Hole Bottom Offset (mm)", key="p1_hole_btm")
 
 # --- PDF GENERATION ENGINE ---
 def generate_pdf():
@@ -116,11 +157,9 @@ def generate_pdf():
         c.drawString(50, tb_y + 35, "SHOWER SCREENS & GLASS (SSG)")
         c.drawRightString(page_w - 50, tb_y + 35, f"PROJECT: {project_name.upper()}")
         
-        # Cleaned Two-Line Header Row to eliminate text overlapping
         c.setFont("Helvetica", 8.5)
         c.drawString(50, tb_y + 20, f"Mark: {mark_id}   |   TOTAL QTY: {qty} PCS   |   Supplier: {supplier}")
         c.drawRightString(page_w - 50, tb_y + 20, f"Date: {date_str}")
-        
         c.drawString(50, tb_y + 7, f"Glass: {glass_type}   |   Edgework: FP 4 Sides   |   Stamp: No Stamp")
         
         c.setFont("Helvetica-Bold", 11)
@@ -153,20 +192,16 @@ def generate_pdf():
         btm_y_offset = (btm_offset / float(real_h)) * p_h
 
         if side == "Left":
-            # Top Notch
             c.rect(ox, oy + p_h - top_y_offset - 9, 12, 18, fill=1, stroke=1)
             c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
             draw_dim_line_v(ox - 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=True)
-            # Bottom Notch
             c.rect(ox, oy + btm_y_offset - 9, 12, 18, fill=1, stroke=1)
             c.drawRightString(ox - 55, oy + btm_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
             draw_dim_line_v(ox - 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=True)
         elif side == "Right":
-            # Top Notch
             c.rect(ox + p_w - 12, oy + p_h - top_y_offset - 9, 12, 18, fill=1, stroke=1)
             c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
             draw_dim_line_v(ox + p_w + 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=False)
-            # Bottom Notch
             c.rect(ox + p_w - 12, oy + btm_y_offset - 9, 12, 18, fill=1, stroke=1)
             c.drawString(ox + p_w + 55, oy + btm_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
             draw_dim_line_v(ox + p_w + 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=False)
@@ -268,11 +303,11 @@ with col1:
     st.write(f"**Shower Style:** {shower_style}")
     st.write(f"**Total Showers Ordered:** {total_showers} Systems")
     if "L-Shape" in shower_style:
-        st.write(f"• **P1 Return Panels Needed:** {total_showers} pcs ({p1_w}mm x {p1_h}mm)")
-        st.write(f"• **P2 Door Panels Needed:** {total_showers} pcs ({p2_w}mm x {p2_h}mm) | Knob Edge: **{p2_knob_side}**")
-        st.write(f"• **P3 Fixed Panels Needed:** {total_showers} pcs ({p3_w}mm x {p3_h}mm)")
+        st.write(f"• **P1 Return Panels Needed:** {total_showers} pcs ({st.session_state.p1_w}mm x {st.session_state.p1_h}mm)")
+        st.write(f"• **P2 Door Panels Needed:** {total_showers} pcs ({st.session_state.p2_w}mm x {st.session_state.p2_h}mm) | Knob Edge: **{p2_knob_side}**")
+        st.write(f"• **P3 Fixed Panels Needed:** {total_showers} pcs ({st.session_state.p3_w}mm x {st.session_state.p3_h}mm)")
     elif "Fixed Panel Only" in shower_style:
-        st.write(f"• **Standalone Fixed Panels Needed:** {total_showers} pcs ({p1_w}mm x {p1_h}mm)")
+        st.write(f"• **Standalone Fixed Panels Needed:** {total_showers} pcs ({st.session_state.p1_w}mm x {st.session_state.p1_h}mm)")
 
 with col2:
     if "Style 3" not in shower_style:
