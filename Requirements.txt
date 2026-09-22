@@ -1,0 +1,7 @@
+streamlit
+pillow
+reportlab
+svgwrite
+openai
+numpy
+opencv-python-headless
