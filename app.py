@@ -30,7 +30,7 @@ st.sidebar.header("3. Job & Header Details")
 project_name = st.sidebar.text_input("Project Name", value="Castle Hill")
 date_str = st.sidebar.text_input("Date", value="22/09/2026")
 supplier = st.sidebar.text_input("Supplier", value="Standard Supplier")
-glass_type = st.sidebar.text_input("Glass Spec", value="10mm MetaLUX Toughened")
+glass_type = st.sidebar.text_input("Glass Spec", value="10mm Clear Toughened")
 
 # --- STEP 4: GLOBAL HINGE SPECS ---
 st.sidebar.header("4. Global Hinge Model Specs")
@@ -75,9 +75,9 @@ if "L-Shape" in shower_style:
 
 elif "Fixed Panel Only" in shower_style:
     st.sidebar.header("5. Fixed Panel Specs")
-    p1_w = st.sidebar.number_input("Fixed Panel Width (mm)", value=900)
-    p1_h = st.sidebar.number_input("Fixed Panel Height (mm)", value=2000)
-    p1_hole_side = st.sidebar.selectbox("Bracket Hole Edge", options=["Left", "Right", "None"], index=0)
+    p1_w = st.sidebar.number_input("Fixed Panel Width (mm)", value=760)
+    p1_h = st.sidebar.number_input("Fixed Panel Height (mm)", value=2400)
+    p1_hole_side = st.sidebar.selectbox("Bracket Hole Edge", options=["Right", "Left", "None"], index=0)
     p1_hole_dia = st.sidebar.number_input("Bracket Hole Diameter (mm)", value=22)
     p1_hole_top = st.sidebar.number_input("Bracket Hole Top Offset (mm)", value=200, key="f1_olt")
     p1_hole_btm = st.sidebar.number_input("Bracket Hole Bottom Offset (mm)", value=200, key="f1_olb")
@@ -89,8 +89,8 @@ def generate_pdf():
     page_w, page_h = landscape(letter)
 
     def calculate_scaled_bounds(real_w, real_h):
-        max_draw_w = 280.0
-        max_draw_h = 320.0
+        max_draw_w = 240.0
+        max_draw_h = 300.0
         aspect = real_w / float(real_h)
         
         if (max_draw_w / aspect) <= max_draw_h:
@@ -101,7 +101,7 @@ def generate_pdf():
             p_w = max_draw_h * aspect
             
         ox = (page_w - p_w) / 2
-        oy = (page_h - p_h) / 2 - 20
+        oy = (page_h - p_h) / 2 - 25
         return ox, oy, p_w, p_h
 
     def draw_header(title, mark_id, qty):
@@ -109,37 +109,41 @@ def generate_pdf():
         c.setStrokeColor(colors.black)
         c.rect(30, 30, page_w - 60, page_h - 60)
         
-        tb_y = page_h - 90
-        c.rect(40, tb_y, page_w - 80, 50)
+        tb_y = page_h - 95
+        c.rect(40, tb_y, page_w - 80, 55)
         
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, tb_y + 30, "SHOWER SCREENS & GLASS (SSG)")
+        c.setFont("Helvetica-Bold", 13)
+        c.drawString(50, tb_y + 35, "SHOWER SCREENS & GLASS (SSG)")
+        c.drawRightString(page_w - 50, tb_y + 35, f"PROJECT: {project_name.upper()}")
         
-        c.setFont("Helvetica-Bold", 12)
-        c.drawRightString(page_w - 50, tb_y + 30, f"PROJECT: {project_name.upper()}")
+        # Cleaned Two-Line Header Row to eliminate text overlapping
+        c.setFont("Helvetica", 8.5)
+        c.drawString(50, tb_y + 20, f"Mark: {mark_id}   |   TOTAL QTY: {qty} PCS   |   Supplier: {supplier}")
+        c.drawRightString(page_w - 50, tb_y + 20, f"Date: {date_str}")
         
-        c.setFont("Helvetica", 9)
-        c.drawString(50, tb_y + 10, f"Mark: {mark_id}  |  TOTAL QTY REQUIRED: {qty} PCS  |  Supplier: {supplier}  |  Glass: {glass_type}")
-        c.drawRightString(page_w - 50, tb_y + 10, f"Date: {date_str}  |  Edgework: FP 4 Sides  |  Stamp: No Stamp")
+        c.drawString(50, tb_y + 7, f"Glass: {glass_type}   |   Edgework: FP 4 Sides   |   Stamp: No Stamp")
         
         c.setFont("Helvetica-Bold", 11)
-        c.drawString(40, page_h - 110, title)
+        c.drawString(40, page_h - 115, title)
 
     def draw_dim_line_h(x1, x2, y, label):
         c.setLineWidth(0.6)
-        c.line(x1, y - 5, x1, y + 5)
-        c.line(x2, y - 5, x2, y + 5)
+        c.line(x1, y - 4, x1, y + 4)
+        c.line(x2, y - 4, x2, y + 4)
         c.line(x1, y, x2, y)
-        c.setFont("Helvetica-Bold", 9)
+        c.setFont("Helvetica-Bold", 8.5)
         c.drawCentredString((x1 + x2) / 2, y + 4, label)
 
-    def draw_dim_line_v(x, y1, y2, label):
+    def draw_dim_line_v(x, y1, y2, label, align_left=True):
         c.setLineWidth(0.6)
-        c.line(x - 5, y1, x + 5, y1)
-        c.line(x - 5, y2, x + 5, y2)
+        c.line(x - 4, y1, x + 4, y1)
+        c.line(x - 4, y2, x + 4, y2)
         c.line(x, y1, x, y2)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawRightString(x - 8, (y1 + y2) / 2 - 3, label)
+        c.setFont("Helvetica-Bold", 8)
+        if align_left:
+            c.drawRightString(x - 6, (y1 + y2) / 2 - 2.5, label)
+        else:
+            c.drawString(x + 6, (y1 + y2) / 2 - 2.5, label)
 
     def draw_hinges(ox, oy, p_w, p_h, real_h, side, top_offset, btm_offset):
         if side == "None":
@@ -151,58 +155,58 @@ def generate_pdf():
         if side == "Left":
             # Top Notch
             c.rect(ox, oy + p_h - top_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawRightString(ox - 35, oy + p_h - top_y_offset + 3, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
-            draw_dim_line_v(ox - 20, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm")
+            c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            draw_dim_line_v(ox - 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=True)
             # Bottom Notch
             c.rect(ox, oy + btm_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawRightString(ox - 35, oy + btm_y_offset + 3, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
-            draw_dim_line_v(ox - 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
+            c.drawRightString(ox - 55, oy + btm_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            draw_dim_line_v(ox - 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=True)
         elif side == "Right":
             # Top Notch
             c.rect(ox + p_w - 12, oy + p_h - top_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawString(ox + p_w + 35, oy + p_h - top_y_offset + 3, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
-            draw_dim_line_v(ox + p_w + 20, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm")
+            c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            draw_dim_line_v(ox + p_w + 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=False)
             # Bottom Notch
             c.rect(ox + p_w - 12, oy + btm_y_offset - 9, 12, 18, fill=1, stroke=1)
-            c.drawString(ox + p_w + 35, oy + btm_y_offset + 3, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
-            draw_dim_line_v(ox + p_w + 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
+            c.drawString(ox + p_w + 55, oy + btm_y_offset - 2, f"{hinge_type} ({hinge_w}x{hinge_h}mm, r={hinge_r}mm)")
+            draw_dim_line_v(ox + p_w + 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=False)
 
     def draw_holes(ox, oy, p_w, p_h, real_h, side, dia, top_offset, btm_offset):
         if side == "None":
             return
-        c.setFont("Helvetica", 7)
+        c.setFont("Helvetica-Bold", 7.5)
         top_y_offset = (top_offset / float(real_h)) * p_h
         btm_y_offset = (btm_offset / float(real_h)) * p_h
 
         if side == "Left":
             c.circle(ox + 15, oy + p_h - top_y_offset, 5, fill=0, stroke=1)
             c.circle(ox + 15, oy + btm_y_offset, 5, fill=0, stroke=1)
-            c.drawRightString(ox - 35, oy + p_h - top_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox - 20, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm")
-            c.drawRightString(ox - 35, oy + btm_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox - 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
+            c.drawRightString(ox - 55, oy + p_h - top_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            draw_dim_line_v(ox - 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=True)
+            c.drawRightString(ox - 55, oy + btm_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            draw_dim_line_v(ox - 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=True)
         elif side == "Right":
             c.circle(ox + p_w - 15, oy + p_h - top_y_offset, 5, fill=0, stroke=1)
             c.circle(ox + p_w - 15, oy + btm_y_offset, 5, fill=0, stroke=1)
-            c.drawString(ox + p_w + 35, oy + p_h - top_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox + p_w + 20, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm")
-            c.drawString(ox + p_w + 35, oy + btm_y_offset - 3, f"Ø{dia}mm Bracket Hole")
-            draw_dim_line_v(ox + p_w + 20, oy, oy + btm_y_offset, f"{btm_offset} mm")
+            c.drawString(ox + p_w + 55, oy + p_h - top_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            draw_dim_line_v(ox + p_w + 25, oy + p_h - top_y_offset, oy + p_h, f"{top_offset} mm", align_left=False)
+            c.drawString(ox + p_w + 55, oy + btm_y_offset - 2.5, f"Ø{dia}mm Bracket Hole")
+            draw_dim_line_v(ox + p_w + 25, oy, oy + btm_y_offset, f"{btm_offset} mm", align_left=False)
 
     def draw_knob(ox, oy, p_w, p_h, real_h, side, dia, height_offset):
         if side == "None":
             return
-        c.setFont("Helvetica", 7)
+        c.setFont("Helvetica-Bold", 7.5)
         knob_y = oy + (height_offset / float(real_h)) * p_h
         
         if side == "Left":
             c.circle(ox + 15, knob_y, 4, fill=0, stroke=1)
-            c.drawRightString(ox - 35, knob_y - 3, f"Ø{dia}mm Knob")
-            draw_dim_line_v(ox - 20, oy, knob_y, f"{height_offset} mm")
+            c.drawRightString(ox - 55, knob_y - 2.5, f"Ø{dia}mm Knob")
+            draw_dim_line_v(ox - 25, oy, knob_y, f"{height_offset} mm", align_left=True)
         elif side == "Right":
             c.circle(ox + p_w - 15, knob_y, 4, fill=0, stroke=1)
-            c.drawString(ox + p_w + 35, knob_y - 3, f"Ø{dia}mm Knob")
-            draw_dim_line_v(ox + p_w + 20, oy, knob_y, f"{height_offset} mm")
+            c.drawString(ox + p_w + 55, knob_y - 2.5, f"Ø{dia}mm Knob")
+            draw_dim_line_v(ox + p_w + 25, oy, knob_y, f"{height_offset} mm", align_left=False)
 
     if "L-Shape" in shower_style:
         # PAGE 1: P1
@@ -211,7 +215,7 @@ def generate_pdf():
         c.setLineWidth(1.5)
         c.rect(ox, oy, p_w, p_h)
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p1_w} mm")
-        draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p1_h} mm")
+        draw_dim_line_v(ox - 90, oy, oy + p_h, f"{p1_h} mm", align_left=True)
         draw_hinges(ox, oy, p_w, p_h, p1_h, p1_hinge_side, p1_hinge_top, p1_hinge_btm)
         draw_holes(ox, oy, p_w, p_h, p1_h, p1_hole_side, p1_hole_dia, p1_hole_top, p1_hole_btm)
         c.showPage()
@@ -222,7 +226,7 @@ def generate_pdf():
         c.setLineWidth(1.5)
         c.rect(ox, oy, p_w, p_h)
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p2_w} mm")
-        draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p2_h} mm")
+        draw_dim_line_v(ox - 90, oy, oy + p_h, f"{p2_h} mm", align_left=True)
         draw_knob(ox, oy, p_w, p_h, p2_h, p2_knob_side, p2_knob_dia, p2_knob_height)
         draw_hinges(ox, oy, p_w, p_h, p2_h, p2_hinge_side, p2_hinge_top, p2_hinge_btm)
         c.showPage()
@@ -233,12 +237,12 @@ def generate_pdf():
         c.setLineWidth(1.5)
         c.rect(ox, oy, p_w, p_h)
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p3_w} mm")
-        draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p3_h} mm")
+        draw_dim_line_v(ox - 90, oy, oy + p_h, f"{p3_h} mm", align_left=True)
         draw_hinges(ox, oy, p_w, p_h, p3_h, p3_hinge_side, p3_hinge_top, p3_hinge_btm)
         draw_holes(ox, oy, p_w, p_h, p3_h, p3_hole_side, p3_hole_dia, p3_hole_top, p3_hole_btm)
         if p3_hinge_side != "Right" and p3_hole_side != "Right":
             c.setFont("Helvetica", 8)
-            c.drawString(ox + p_w + 15, oy + p_h/2, "(Clean Straight Edge)")
+            c.drawString(ox + p_w + 20, oy + p_h/2, "(Clean Straight Edge)")
         c.showPage()
 
     elif "Fixed Panel Only" in shower_style:
@@ -248,7 +252,7 @@ def generate_pdf():
         c.setLineWidth(1.5)
         c.rect(ox, oy, p_w, p_h)
         draw_dim_line_h(ox, ox + p_w, oy + p_h + 15, f"{p1_w} mm")
-        draw_dim_line_v(ox - 60, oy, oy + p_h, f"{p1_h} mm")
+        draw_dim_line_v(ox - 90, oy, oy + p_h, f"{p1_h} mm", align_left=True)
         draw_holes(ox, oy, p_w, p_h, p1_h, p1_hole_side, p1_hole_dia, p1_hole_top, p1_hole_btm)
         c.showPage()
 
