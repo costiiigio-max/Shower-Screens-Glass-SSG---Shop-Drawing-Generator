@@ -1,14 +1,28 @@
 import streamlit as st
-# Requires installing image select: pip install streamlit-image-select
-from streamlit_image_select import image_select
-import time
+import base64
+import json
+import re
+
+# Optional: Try importing OpenAI and streamlit_image_select
+try:
+    from openai import OpenAI
+    client = OpenAI()
+except Exception:
+    client = None
+
+try:
+    from streamlit_image_select import image_select
+    HAS_IMAGE_SELECT = True
+except ImportError:
+    HAS_IMAGE_SELECT = False
 
 st.set_page_config(page_title="SSG Shop Drawing Generator", layout="wide")
 
-# --- INITIAL SESSION STATE RESET ---
+# =========================================================
+# 1. INITIAL SESSION STATE RESET
+# =========================================================
 if "app_initialized" not in st.session_state:
     st.session_state["app_initialized"] = True
-    # Initial measurements set to 0.0 (and not saved, so they reset on restart)
     st.session_state["p1_w"] = 0.0
     st.session_state["p1_h"] = 0.0
     st.session_state["p2_w"] = 0.0
@@ -17,9 +31,10 @@ if "app_initialized" not in st.session_state:
     st.session_state["p3_h"] = 0.0
 
 # =========================================================
-# HELPER: SAFE CANVAS CALCULATIONS (Prevents ZeroDivisionError)
+# 2. HELPER FUNCTIONS & VISION API
 # =========================================================
 def calculate_scaled_bounds(real_w, real_h, max_w=400, max_h=400):
+    """Safely calculates bounding dimensions without ZeroDivisionError."""
     if float(real_h) <= 0 or float(real_w) <= 0:
         return 0, 0, max_w, max_h
     aspect = float(real_w) / float(real_h)
@@ -31,48 +46,94 @@ def calculate_scaled_bounds(real_w, real_h, max_w=400, max_h=400):
         p_w = max_h * aspect
     return 0, 0, p_w, p_h
 
-st.title("SSG Shop Drawing Generator")
-st.write("Generated from measuring tool 'app.py'")
+def extract_measurements_from_sketch(uploaded_file):
+    """Converts uploaded image to Base64 and extracts panel dimensions via OpenAI GPT-4o."""
+    if not client:
+        raise ValueError("OpenAI client is not initialized. Ensure OPENAI_API_KEY is configured.")
+        
+    bytes_data = uploaded_file.getvalue()
+    base64_image = base64.b64encode(bytes_data).decode("utf-8")
+    
+    prompt = """
+    You are an expert glazier assistant reading installer hand sketches for shower screens.
+    Extract the panel measurements in millimeters (mm).
+    
+    Return ONLY a valid raw JSON object matching this structure:
+    {
+      "p1_w": float or 0.0,
+      "p1_h": float or 0.0,
+      "p2_w": float or 0.0,
+      "p2_h": float or 0.0,
+      "p3_w": float or 0.0,
+      "p3_h": float or 0.0
+    }
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                    }
+                ]
+            }
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.0
+    )
+    
+    raw_json = response.choices[0].message.content
+    return json.loads(raw_json)
+
 
 # =========================================================
-# TOP CONFIGURATION BAR
+# 3. TOP NAVIGATION & DIAGRAM ICON SELECTION
 # =========================================================
-st.divider()
+st.title("SSG Shop Drawing Generator")
+
 st.subheader("1. Select Shower Screen Shape:")
 
-# Using streamlit-image-select for visual selection instead of a dropdown
-# Icons: Single Panel (Rect), Inline (2-Panel), Corner (3-Panel / L-Shape)
-selected_icon = image_select(
-    label="Choose a design layout:",
-    images=[
-        "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/rectangle.svg",  # Represents Single Panel
-        "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/table-columns.svg", # Represents Inline (2)
-        "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/vector-square.svg" # Represents Corner (3/L)
-    ],
-    captions=["Single Fixed Panel", "2-Panel Inline", "3-Panel Corner / L-Shape"],
-    index=0,  # Default to Single Fixed Panel
-    use_container_width=False,
-    key="layout_icon_select"
-)
-
-# Map the selected icon caption back to the internal layout name
-if selected_icon == "Single Fixed Panel":
-    layout_style = "Single Fixed Panel"
-elif selected_icon == "2-Panel Inline":
-    layout_style = "2-Panel Inline (Door + Return)"
+if HAS_IMAGE_SELECT:
+    selected_icon = image_select(
+        label="Click layout diagram:",
+        images=[
+            "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/rectangle.svg", 
+            "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/table-columns.svg", 
+            "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/vector-square.svg" 
+        ],
+        captions=["Single Fixed Panel", "2-Panel Inline", "3-Panel Corner / L-Shape"],
+        index=0,
+        use_container_width=False,
+        key="layout_icon_select"
+    )
+    if selected_icon == "Single Fixed Panel":
+        layout_style = "Single Fixed Panel"
+    elif selected_icon == "2-Panel Inline":
+        layout_style = "2-Panel Inline (Door + Return)"
+    else:
+        layout_style = "3-Panel Corner / L-Shape"
 else:
-    layout_style = "3-Panel Corner / L-Shape"
+    # Fallback standard selector if pip library is missing
+    layout_style = st.radio(
+        "Shower Screen Style:",
+        ["Single Fixed Panel", "2-Panel Inline (Door + Return)", "3-Panel Corner / L-Shape"],
+        horizontal=True
+    )
 
 st.divider()
 
 # =========================================================
-# DYNAMIC PANEL MENUS & SKETCH UPLOAD
+# 4. TOP DYNAMIC INPUT MENUS (TABS & EXPANDERS)
 # =========================================================
-# Use tabs to organize the remaining inputs, making them compact
-tab_input, tab_upload = st.tabs(["2. Input Manual Measurements", "3. Auto-Fill from Installer Sketch"])
+tab_manual, tab_vision = st.tabs(["2. Input Manual Measurements", "3. Auto-Fill from Installer Sketch"])
 
-with tab_input:
-    # Set expanders to collapsed (expanded=False) for cleaner start
+with tab_manual:
+    # Set expanders to collapsed (expanded=False) for max workspace
     with st.expander("Panel 1 (Fixed / Return) – Configuration", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -108,9 +169,8 @@ with tab_input:
             with col2:
                 st.number_input("P3 Height (mm)", min_value=0.0, key="p3_h")
 
-    # Global hardware setting (preserved)
-    st.divider()
-    with st.expander("Global hardware Options", expanded=False):
+    # Global options
+    with st.expander("Global Hardware & Glass Options", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             st.selectbox("Hole Size (mm):", [10, 12, 14, 16, 20], key="hole_diameter")
@@ -118,47 +178,60 @@ with tab_input:
             st.selectbox("Hardware Finish:", ["Chrome", "Black", "Brushed Brass", "Satin"], key="hardware_finish")
 
 
-with tab_upload:
+with tab_vision:
     uploaded_sketch = st.file_uploader("Upload Installer Sketch (JPG/PNG)", type=["jpg", "jpeg", "png"])
+    
     if uploaded_sketch:
         st.success("Sketch uploaded. Ready to extract data.")
-        st.warning("Vision API extraction not yet implemented.")
-        # if st.button("Extract Data from Sketch"):
-        #     st.toast("Calling Vision API...", icon="⌛")
-        #     time.sleep(1) # Simulation
-        #     # Example data update (requires actual API implementation):
-        #     # st.session_state["p1_w"] = 950.0
-        #     # st.session_state["p1_h"] = 2100.0
-        #     # st.rerun()
+        if st.button("Extract Data from Sketch"):
+            with st.spinner("Analyzing sketch with Vision API..."):
+                try:
+                    extracted_data = extract_measurements_from_sketch(uploaded_sketch)
+                    
+                    st.session_state["p1_w"] = float(extracted_data.get("p1_w", 0.0))
+                    st.session_state["p1_h"] = float(extracted_data.get("p1_h", 0.0))
+                    st.session_state["p2_w"] = float(extracted_data.get("p2_w", 0.0))
+                    st.session_state["p2_h"] = float(extracted_data.get("p2_h", 0.0))
+                    st.session_state["p3_w"] = float(extracted_data.get("p3_w", 0.0))
+                    st.session_state["p3_h"] = float(extracted_data.get("p3_h", 0.0))
+                    
+                    st.toast("Measurements successfully extracted!", icon="✅")
+                    st.rerun()
+                except Exception as err:
+                    st.error(f"Extraction failed: {str(err)}")
 
 st.divider()
 
 # =========================================================
-# MAIN OUTPUT & SHOP DRAWING AREA
+# 5. SHOP DRAWING DISPLAY AREA
 # =========================================================
 st.subheader("Shop Drawing Layout")
-st.write(f"**Layout Selected:** {layout_style}")
+st.write(f"**Selected Style:** {layout_style}")
 st.write(f"**Hardware Finish:** {st.session_state.get('hardware_finish', 'Chrome')}")
 
-# Dynamic active panel breakdown
-tab_p1_details, tab_p2_details, tab_p3_details = st.tabs(["Panel 1 Details", "Panel 2 Details", "Panel 3 Details"])
+# Active panel breakdown display
+detail_tabs = ["Panel 1 Details"]
+if layout_style in ["2-Panel Inline (Door + Return)", "3-Panel Corner / L-Shape"]:
+    detail_tabs.append("Panel 2 Details")
+if layout_style == "3-Panel Corner / L-Shape":
+    detail_tabs.append("Panel 3 Details")
 
-with tab_p1_details:
+tabs_obj = st.tabs(detail_tabs)
+
+with tabs_obj[0]:
     st.write(f"**P1 - Fixed/Return:** {st.session_state.p1_w}mm (W) x {st.session_state.p1_h}mm (H)")
 
-if layout_style in ["2-Panel Inline (Door + Return)", "3-Panel Corner / L-Shape"]:
-    with tab_p2_details:
+if len(detail_tabs) > 1:
+    with tabs_obj[1]:
         st.write(f"**P2 - Center Door:** {st.session_state.p2_w}mm (W) x {st.session_state.p2_h}mm (H)")
 
-if layout_style == "3-Panel Corner / L-Shape":
-    with tab_p3_details:
+if len(detail_tabs) > 2:
+    with tabs_obj[2]:
         st.write(f"**P3 - Right Fixed:** {st.session_state.p3_w}mm (W) x {st.session_state.p3_h}mm (H)")
 
-# Safe drawing calculation check
+# Safe bounds check prior to drawing calculation
 if st.session_state.p1_w > 0 and st.session_state.p1_h > 0:
     ox, oy, pw, ph = calculate_scaled_bounds(st.session_state.p1_w, st.session_state.p1_h)
     st.success(f"Rendering Drawing Canvas (Scaled Bounds: {pw:.0f}x{ph:.0f})...")
-    # Your canvas rendering logic goes here
-    # Example: generate_pdf(ox, oy, pw, ph)
 else:
-    st.warning("Enter valid dimensions (> 0) above to generate the drawing canvas.")
+    st.warning("Enter valid panel dimensions (> 0) above or upload a sketch to generate the drawing canvas.")
